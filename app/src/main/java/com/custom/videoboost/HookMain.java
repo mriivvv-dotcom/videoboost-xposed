@@ -14,7 +14,7 @@ public class HookMain implements IXposedHookLoadPackage {
             return;
         }
 
-        // Железная формула определения пространства (User 10 = UIDs 1000000..1099999)
+        // Определение второго пространства (User 10)
         int userId = Process.myUid() / 100000;
         XposedBridge.log("[VideoBoost] GCam launched. User ID: " + userId);
 
@@ -25,7 +25,7 @@ public class HookMain implements IXposedHookLoadPackage {
 
         XposedBridge.log("[VideoBoost] User 10 confirmed! Injecting hooks...");
 
-        // 1. Перехват Boolean флагов (Video Boost / Sapphire)
+        // 1. Принудительно отдаем TRUE на чтение булевых флагов Video Boost
         XposedHelpers.findAndHookMethod(
             "android.app.SharedPreferencesImpl",
             lpparam.classLoader,
@@ -43,7 +43,7 @@ public class HookMain implements IXposedHookLoadPackage {
             }
         );
 
-        // 2. Перехват String настроек (принудительно выставляем 8K разрешение, активирующее Video Boost)
+        // 2. Принудительно выставляем 8K разрешение для видео
         XposedHelpers.findAndHookMethod(
             "android.app.SharedPreferencesImpl",
             lpparam.classLoader,
@@ -61,9 +61,6 @@ public class HookMain implements IXposedHookLoadPackage {
                     }
                 }
             }
-        );
-    }
-}            }
         );
     }
 }
