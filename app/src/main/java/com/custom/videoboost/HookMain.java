@@ -3,6 +3,7 @@ package com.custom.videoboost;
 import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedHelpers;
+import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.callbacks.XC_LoadPackage.LoadPackageParam;
 import android.os.Process;
 
@@ -13,13 +14,18 @@ public class HookMain implements IXposedHookLoadPackage {
             return;
         }
 
-        // Проверяем, что запуск во 2-м пространстве (User 10)
-        int userId = Process.myUserHandle().hashCode();
+        // Железная формула определения пространства (User 10 = UIDs 1000000..1099999)
+        int userId = Process.myUid() / 100000;
+        XposedBridge.log("[VideoBoost] GCam launched. User ID: " + userId);
+
         if (userId != 10) {
+            XposedBridge.log("[VideoBoost] Not User 10, skipping.");
             return;
         }
 
-        // Принудительно отдаем TRUE на чтение настроек Video Boost / 8K
+        XposedBridge.log("[VideoBoost] User 10 confirmed! Injecting hooks...");
+
+        // 1. Перехват Boolean флагов (Video Boost / Sapphire)
         XposedHelpers.findAndHookMethod(
             "android.app.SharedPreferencesImpl",
             lpparam.classLoader,
@@ -30,11 +36,34 @@ public class HookMain implements IXposedHookLoadPackage {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
                     String key = (String) param.args[0];
-                    if (key != null && (key.contains("sapphire") || key.contains("video_boost") || key.contains("8k"))) {
+                    if (key != null && (key.contains("sapphire") || key.contains("video_boost") || key.contains("8k") || key.contains("onyx"))) {
                         param.setResult(true);
                     }
                 }
             }
+        );
+
+        // 2. Перехват String настроек (принудительно выставляем 8K разрешение, активирующее Video Boost)
+        XposedHelpers.findAndHookMethod(
+            "android.app.SharedPreferencesImpl",
+            lpparam.classLoader,
+            "getString",
+            String.class,
+            String.class,
+            new XC_MethodHook() {
+                @Override
+                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                    String key = (String) param.args[0];
+                    if (key != null) {
+                        if (key.contains("video_resolution") || key.contains("video_quality") || key.contains("camcorder")) {
+                            param.setResult("RES_4320P");
+                        }
+                    }
+                }
+            }
+        );
+    }
+}            }
         );
     }
 }
